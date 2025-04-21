@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
 
@@ -9,35 +9,12 @@ function App() {
   const [error, setError] = useState('');
   const [preview, setPreview] = useState('');
 
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001';
 
-  // Memoized fetch function with proper dependencies
-  const fetchImages = useCallback(async () => {
-    try {
-      console.log('Fetching images from:', `${API_BASE_URL}/api/images`);
-      const { data } = await axios.get(`${API_BASE_URL}/api/images`);
-      console.log('Received images:', data);
-      
-      // Ensure URLs are absolute and correct
-      const processedImages = data.images.map(img => ({
-        ...img,
-        url: img.url.startsWith('http') ? img.url : `${API_BASE_URL}${img.url}`
-      }));
-      
-      setImages(processedImages);
-      setError('');
-    } catch (err) {
-      setError('Failed to load images. Please try again later.');
-      console.error('Fetch error:', err.response?.data || err.message);
-    }
-  }, [API_BASE_URL]);
-
-  // Initial load and refresh after upload
   useEffect(() => {
     fetchImages();
-  }, [fetchImages]);
+  }, []);
 
-  // Image preview handling
   useEffect(() => {
     if (!selectedFile) {
       setPreview('');
@@ -49,6 +26,17 @@ function App() {
 
     return () => URL.revokeObjectURL(objectUrl);
   }, [selectedFile]);
+
+  const fetchImages = async () => {
+    try {
+      const { data } = await axios.get(`${API_BASE_URL}/api/images`);
+      setImages(data.images || []);
+      setError('');
+    } catch (err) {
+      setError('Failed to load images. Please try again later.');
+      console.error('Fetch error:', err);
+    }
+  };
 
   const handleUpload = async (e) => {
     e.preventDefault();
@@ -65,19 +53,15 @@ function App() {
       const formData = new FormData();
       formData.append('image', selectedFile);
 
-      const response = await axios.post(`${API_BASE_URL}/api/upload`, formData, {
+      await axios.post(`${API_BASE_URL}/api/upload`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data'
         }
       });
-      console.log('Upload response:', response.data);
 
       await fetchImages();
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 
-                      err.message || 
-                      'Upload failed. Please try again.';
-      setError(errorMsg);
+      setError(err.response?.data?.error || 'Upload failed. Please try again.');
       console.error('Upload error:', err);
     } finally {
       setUploading(false);
@@ -89,9 +73,7 @@ function App() {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validation
-    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!validTypes.includes(file.type)) {
+    if (!file.type.match('image/(jpeg|png|gif|webp)')) {
       setError('Only JPG, PNG, GIF, or WEBP images are allowed');
       return;
     }
@@ -109,7 +91,6 @@ function App() {
     <div className="app-container">
       <header>
         <h1>Image Upload Gallery</h1>
-        <p>API Base URL: {API_BASE_URL}</p>
       </header>
 
       <div className="upload-section">
@@ -140,7 +121,6 @@ function App() {
           <button
             type="submit"
             disabled={!selectedFile || uploading}
-            className={uploading ? 'uploading' : ''}
           >
             {uploading ? 'Uploading...' : 'Upload Image'}
           </button>
@@ -157,22 +137,17 @@ function App() {
           <div className="image-grid">
             {images.map((image) => (
               <div key={image.id} className="image-card">
-                <div className="image-wrapper">
-                  <img
-                    src={image.url}
-                    alt={image.name}
-                    onError={(e) => {
-                      console.error('Error loading image:', image.url);
-                      e.target.src = '/placeholder.jpg';
-                    }}
-                  />
-                </div>
+                <img
+                  src={image.url}
+                  alt={image.name}
+                  onError={(e) => {
+                    e.target.src = '/placeholder.jpg';
+                  }}
+                />
                 <div className="image-info">
-                  <span className="image-name">{image.name}</span>
-                  <span className="image-size">{(image.size / 1024).toFixed(2)} KB</span>
-                  <span className="image-date">
-                    {new Date(image.uploadedAt).toLocaleString()}
-                  </span>
+                  <span>{image.name}</span>
+                  <span>{(image.size / 1024).toFixed(2)} KB</span>
+                  <span>{new Date(image.uploadedAt).toLocaleString()}</span>
                 </div>
               </div>
             ))}
