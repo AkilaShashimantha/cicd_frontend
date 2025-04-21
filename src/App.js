@@ -9,7 +9,9 @@ function App() {
   const [error, setError] = useState('');
   const [preview, setPreview] = useState('');
 
-  const API_BASE_URL = REACT_APP_API_URL;
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+  console.log('Using API URL:', API_BASE_URL);
 
   useEffect(() => {
     fetchImages();
