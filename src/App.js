@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import './App.css';
 
@@ -13,10 +13,24 @@ function App() {
 
   console.log('Using API URL:', API_BASE_URL);
 
+  // Memoized fetchImages function to prevent unnecessary recreations
+  const fetchImages = useCallback(async () => {
+    try {
+      const { data } = await axios.get(`${API_BASE_URL}/api/images`);
+      setImages(data.images || []);
+      setError('');
+    } catch (err) {
+      setError('Failed to load images. Please try again later.');
+      console.error('Fetch error:', err);
+    }
+  }, [API_BASE_URL]); // Added API_BASE_URL as dependency
+
+  // Initial data fetch
   useEffect(() => {
     fetchImages();
-  }, []);
+  }, [fetchImages]); // Added fetchImages to dependencies
 
+  // Preview cleanup effect
   useEffect(() => {
     if (!selectedFile) {
       setPreview('');
@@ -28,17 +42,6 @@ function App() {
 
     return () => URL.revokeObjectURL(objectUrl);
   }, [selectedFile]);
-
-  const fetchImages = async () => {
-    try {
-      const { data } = await axios.get(`${API_BASE_URL}/api/images`);
-      setImages(data.images || []);
-      setError('');
-    } catch (err) {
-      setError('Failed to load images. Please try again later.');
-      console.error('Fetch error:', err);
-    }
-  };
 
   const handleUpload = async (e) => {
     e.preventDefault();
@@ -61,7 +64,7 @@ function App() {
         }
       });
 
-      await fetchImages();
+      await fetchImages(); // Use the memoized version
     } catch (err) {
       setError(err.response?.data?.error || 'Upload failed. Please try again.');
       console.error('Upload error:', err);
